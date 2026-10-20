@@ -1,0 +1,26 @@
+# --- source / build inputs (not needed at runtime) ---
+.vscode/
+.gitignore
+.git/
+src/
+scripts/
+tsconfig.json
+esbuild.mjs
+dist/*.map
+.github/
+.gitattributes
+FEATURE-REQUEST.md
+LOCAL-NOTES.md
+PUBLISHING.md
+
+# --- misc ---
+*.log
+*.vsix
+.DS_Store
+
+node_modules/@types/
+
+# NOTE: node_modules IS intentionally shipped — the MCP server
+# (@modelcontextprotocol/sdk, playwright, zod) must be resolvable at runtime.
+# dist/server.js is the entry point referenced by contributes.mcp;
+# dist/extension.js is the extension host entry referenced by "main".

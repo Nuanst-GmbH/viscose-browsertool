@@ -1,0 +1,8 @@
+node_modules/
+dist/
+*.vsix
+*.vsixmap
+.DS_Store
+LOCAL-NOTES.md
+.env
+.env.*

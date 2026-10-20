@@ -1,0 +1,103 @@
+{
+  "name": "vscode-browser-tool",
+  "displayName": "Browser Tool (MCP)",
+  "description": "MCP browser tools for AI agents: a headless Chromium opens pages and performs clicks, typing, JS evaluation, and screenshots.",
+  "version": "0.3.0",
+  "publisher": "nuanst-one",
+  "author": "Nuanst One GmbH",
+  "license": "MIT",
+  "homepage": "https://github.com/nuanst-one/vscode-browser-tool#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nuanst-one/vscode-browser-tool.git"
+  },
+  "bugs": {
+    "url": "https://github.com/nuanst-one/vscode-browser-tool/issues"
+  },
+  "icon": "icon.png",
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "enabledApiProposals": [
+    "browser"
+  ],
+  "engines": {
+    "vscode": "^1.104.0",
+    "node": ">=20"
+  },
+  "categories": [
+    "Other",
+    "Machine Learning"
+  ],
+  "keywords": [
+    "mcp",
+    "browser",
+    "playwright",
+    "automation",
+    "screenshot",
+    "ai",
+    "agent",
+    "model context protocol"
+  ],
+  "galleryBanner": {
+    "color": "#1e293b",
+    "theme": "dark"
+  },
+  "qna": false,
+  "contributes": {
+    "commands": [
+      {
+        "command": "browserTool.enableBrowserTabApi",
+        "title": "Enable browser tab integration (opens argv.json)",
+        "category": "Browser Tool"
+      }
+    ],
+    "mcp": {
+      "servers": [
+        {
+          "label": "browser-tool",
+          "command": "node",
+          "args": [
+            "${extensionPath}/dist/server.js"
+          ]
+        }
+      ]
+    },
+    "configuration": [
+      {
+        "title": "Browser Tool",
+        "properties": {
+          "browserTool.browserTab": {
+            "type": "boolean",
+            "default": false,
+            "markdownDescription": "When enabled, `open_url`/`navigate` also open the page in VS Code's **integrated browser tab** so you can watch the agent work live. Uses the proposed `browser` VS Code API, so it is off by default and may be unavailable on some VS Code versions."
+          }
+        }
+      }
+    ]
+  },
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "typecheck": "tsc --noEmit",
+    "mcp": "node dist/server.js",
+    "playwright:install": "playwright install chromium",
+    "testpage": "node scripts/testpage.js",
+    "icon": "node scripts/make-icon.mjs",
+    "package": "vsce package",
+    "publish": "vsce publish",
+    "vscode:prepublish": "npm run build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "playwright": "^1.64.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "@types/vscode": "1.104.0",
+    "@vscode/vsce": "^3.2.0",
+    "esbuild": "^0.28.2",
+    "typescript": "~5.9.3"
+  }
+}
