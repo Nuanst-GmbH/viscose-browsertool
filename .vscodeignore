@@ -12,6 +12,7 @@ dist/*.map
 FEATURE-REQUEST.md
 LOCAL-NOTES.md
 PUBLISHING.md
+media/
 
 # --- misc ---
 *.log

@@ -1,10 +1,12 @@
 # Browser Tool (MCP)
 
+<img src="icon.png" alt="Browser Tool icon" width="96">
+
 [![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/nuanst-one.vscode-browser-tool)](https://marketplace.visualstudio.com/items?itemName=nuanst-one.vscode-browser-tool)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-An [MCP](https://modelcontextprotocol.io) server for VS Code that lets AI agents (Claude Code,
-Copilot, or any MCP client) open any URL in a browser and interact with it.
+An [MCP](https://modelcontextprotocol.io) server for VS Code, from [Nuanst](https://www.nuanst.com),
+that lets AI agents (Claude Code, Copilot, or any MCP client) open any URL in a browser and interact with it.
 
 - **Headless browser** — all automated actions (navigate, click, type, select, read, evaluate JS,
   screenshot) run on a headless Playwright Chromium ("the twin"), because webviews cannot script
@@ -49,6 +51,16 @@ or as a raw MCP client config:
 ```
 
 </details>
+
+## If the agent says the tools are unavailable
+
+The **Browser Tool** output channel's "listening on …" line is the live-view
+pipe inside VS Code. It is not the MCP server. Claude connects to a separate
+process, `node <extension>/dist/server.js`.
+
+Run **Browser Tool: /doctor** from the Command Palette. It starts that process,
+asks it to list its tools, and writes the result to the same output channel.
+A pipe that is listening does not mean the tools are connected.
 
 ## Tools
 
@@ -185,4 +197,4 @@ read `#count`, and screenshot it."*
 
 [MIT](LICENSE) © Nuanst One GmbH
 
-Source and issues: <https://github.com/nuanst-one/vscode-browser-tool>
+Source and issues: <https://github.com/Nuanst-GmbH/viscose-browsertool>

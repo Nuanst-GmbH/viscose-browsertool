@@ -2,17 +2,17 @@
   "name": "vscode-browser-tool",
   "displayName": "Browser Tool (MCP)",
   "description": "MCP browser tools for AI agents: a headless Chromium opens pages and performs clicks, typing, JS evaluation, and screenshots.",
-  "version": "0.3.0",
+  "version": "0.3.2",
   "publisher": "nuanst-one",
   "author": "Nuanst One GmbH",
   "license": "MIT",
-  "homepage": "https://github.com/nuanst-one/vscode-browser-tool#readme",
+  "homepage": "https://github.com/Nuanst-GmbH/viscose-browsertool#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/nuanst-one/vscode-browser-tool.git"
+    "url": "https://github.com/Nuanst-GmbH/viscose-browsertool.git"
   },
   "bugs": {
-    "url": "https://github.com/nuanst-one/vscode-browser-tool/issues"
+    "url": "https://github.com/Nuanst-GmbH/viscose-browsertool/issues"
   },
   "icon": "icon.png",
   "main": "./dist/extension.js",
@@ -41,12 +41,17 @@
     "model context protocol"
   ],
   "galleryBanner": {
-    "color": "#1e293b",
+    "color": "#003b7b",
     "theme": "dark"
   },
   "qna": false,
   "contributes": {
     "commands": [
+      {
+        "command": "browserTool.doctor",
+        "title": "/doctor",
+        "category": "Browser Tool"
+      },
       {
         "command": "browserTool.enableBrowserTabApi",
         "title": "Enable browser tab integration (opens argv.json)",
@@ -83,7 +88,6 @@
     "mcp": "node dist/server.js",
     "playwright:install": "playwright install chromium",
     "testpage": "node scripts/testpage.js",
-    "icon": "node scripts/make-icon.mjs",
     "package": "vsce package",
     "publish": "vsce publish",
     "vscode:prepublish": "npm run build"

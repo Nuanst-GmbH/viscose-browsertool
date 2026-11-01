@@ -1,4 +1,4 @@
-import { Browser, BrowserContext, Page, chromium, type Cookie } from "playwright";
+import type { Browser, BrowserContext, Cookie, Page } from "playwright";
 
 // The "twin": a single headless Chromium that performs all automated
 // interaction. One context/page for the server's lifetime so cookies and
@@ -9,8 +9,17 @@ let browser: Browser | null = null;
 let context: BrowserContext | null = null;
 let page: Page | null = null;
 
+// Loaded on first use. A static import crashes the MCP process at startup
+// when Playwright cannot be resolved, so the client reports the tools as
+// unavailable before any tool is called.
+async function loadChromium(): Promise<typeof import("playwright").chromium> {
+  const { chromium } = await import("playwright");
+  return chromium;
+}
+
 export async function getPage(): Promise<Page> {
   if (!browser || !browser.isConnected()) {
+    const chromium = await loadChromium();
     const opts: Parameters<typeof chromium.launch>[0] = {
       headless: true,
       // BROWSER_TOOL_CHANNEL lets the user point at a local Chrome/Edge

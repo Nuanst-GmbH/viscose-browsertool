@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import * as net from "node:net";
 import * as fs from "node:fs";
 import { hostPipePath } from "./bridge.js";
+import { runDoctor } from "./doctor.js";
 
 // Extension host side of the browser-tab bridge.
 //
@@ -23,6 +24,46 @@ import { hostPipePath } from "./bridge.js";
 
 const SETTING = "browserTool.browserTab";
 const PROPOSAL_KEY = "enable-proposed-api";
+
+function cookieNames(cookies: unknown[]): string {
+  const names = cookies
+    .map((c) => {
+      if (!c || typeof c !== "object" || !("name" in c)) return "";
+      const name = (c as { name?: unknown }).name;
+      return typeof name === "string" ? name : "";
+    })
+    .filter(Boolean);
+  return names.length ? names.join(", ") : "none";
+}
+
+// document.cookie is "a=b; c=d" for the current document only, with no domain,
+// path, or HttpOnly bit. The hostname comes from the tab URL so the twin can
+// store them. Values are not logged.
+function documentCookies(raw: string, pageUrl: string | undefined): { name: string; value: string; domain: string; path: string; secure: boolean; httpOnly: boolean }[] {
+  let domain = "";
+  let secure = false;
+  if (pageUrl) {
+    try {
+      const u = new URL(pageUrl);
+      domain = u.hostname;
+      secure = u.protocol === "https:";
+    } catch {
+      /* unusable url */
+    }
+  }
+  if (!domain) return [];
+  const out: { name: string; value: string; domain: string; path: string; secure: boolean; httpOnly: boolean }[] = [];
+  for (const part of raw.split(";")) {
+    const trimmed = part.trim();
+    if (!trimmed) continue;
+    const eq = trimmed.indexOf("=");
+    const name = (eq < 0 ? trimmed : trimmed.slice(0, eq)).trim();
+    const value = eq < 0 ? "" : trimmed.slice(eq + 1).trim();
+    if (!name) continue;
+    out.push({ name, value, domain, path: "/", secure, httpOnly: false });
+  }
+  return out;
+}
 
 type OpenTabFn = (url: string, options?: { preserveFocus?: boolean }) => Thenable<vscode.BrowserTab>;
 
@@ -212,20 +253,63 @@ class TabBridge {
     });
   }
 
-  // Pull all cookies the integrated tab's context holds. Prefer
-  // Storage.getCookies (all cookies, no urls needed); fall back to
-  // Network.getCookies if that domain is unavailable in this WebView2.
-  private async fetchCookies(): Promise<unknown> {
+  // Pull cookies the integrated tab can see. WebView2 (the Windows integrated
+  // browser) does not implement Storage.getCookies — that is the "Method not
+  // found" line. Network.getCookies is the method that usually exists; it
+  // needs the page URL. document.cookie is the last resort and cannot see
+  // HttpOnly cookies, which is what an SSO session cookie usually is.
+  private async fetchCookies(): Promise<unknown[]> {
+    const url = this.ourTab?.url;
+    await this.cdpRequest("Network.enable", {}, 2000).catch(() => undefined);
+
+    const attempts: { method: string; params: Record<string, unknown> }[] = [
+      { method: "Network.getCookies", params: url ? { urls: [url] } : {} },
+      { method: "Network.getAllCookies", params: {} },
+      { method: "Storage.getCookies", params: {} },
+    ];
+    let best: unknown[] | null = null;
+    let bestMethod = "";
+    for (const attempt of attempts) {
+      this.out.appendLine(`Cookie read: ${attempt.method}`);
+      try {
+        const result = await this.cdpRequest<{ cookies?: unknown[] }>(attempt.method, attempt.params);
+        const cookies = Array.isArray(result?.cookies) ? result.cookies : [];
+        this.out.appendLine(`Cookie read: ${attempt.method} returned ${cookies.length} (${cookieNames(cookies)})`);
+        if (best === null || cookies.length > best.length) {
+          best = cookies;
+          bestMethod = attempt.method;
+        }
+        if (cookies.length > 0) break;
+      } catch (e) {
+        this.out.appendLine(
+          `Cookie read: ${attempt.method} failed (${e instanceof Error ? e.message : String(e)})`,
+        );
+      }
+    }
+    if (best && best.length > 0) {
+      this.out.appendLine(`Cookie read: using ${best.length} from ${bestMethod}.`);
+      return best;
+    }
+
+    this.out.appendLine("Cookie read: CDP returned none. Trying document.cookie (HttpOnly cookies are invisible).");
     try {
-      const result = await this.cdpRequest<{ cookies: unknown[] }>("Storage.getCookies");
-      return result?.cookies ?? [];
+      const result = await this.cdpRequest<{ result?: { value?: unknown } }>("Runtime.evaluate", {
+        expression: "document.cookie",
+        returnByValue: true,
+      });
+      const raw = typeof result?.result?.value === "string" ? result.result.value : "";
+      const cookies = documentCookies(raw, url);
+      this.out.appendLine(
+        `Cookie read: document.cookie returned ${cookies.length} (${cookieNames(cookies)}). HttpOnly SSO cookies are not included.`,
+      );
+      if (cookies.length > 0 || best) return cookies.length > 0 ? cookies : best!;
     } catch (e) {
       this.out.appendLine(
-        `Storage.getCookies failed (${e instanceof Error ? e.message : String(e)}); trying Network.getCookies`,
+        `Cookie read: document.cookie failed (${e instanceof Error ? e.message : String(e)})`,
       );
-      const result = await this.cdpRequest<{ cookies: unknown[] }>("Network.getCookies");
-      return result?.cookies ?? [];
     }
+    if (best) return best;
+    throw new Error("no cookie API answered (Storage.getCookies and Network.getCookies are missing, and document.cookie failed)");
   }
 
   start(): void {
@@ -281,8 +365,15 @@ class TabBridge {
         }
         if (req.action === "getCookies") {
           this.fetchCookies()
-            .then((cookies) => this.replyRaw(sock, { ok: true, cookies }))
-            .catch((e) => this.replyRaw(sock, { ok: false, error: e instanceof Error ? e.message : String(e) }));
+            .then((cookies) => {
+              this.out.appendLine(`Cookie sync: handing ${cookies.length} cookie(s) to the headless twin.`);
+              this.replyRaw(sock, { ok: true, cookies });
+            })
+            .catch((e) => {
+              const msg = e instanceof Error ? e.message : String(e);
+              this.out.appendLine(`Cookie sync failed: ${msg}`);
+              this.replyRaw(sock, { ok: false, error: msg });
+            });
           return;
         }
         if (typeof req.url !== "string" || !req.url) {
@@ -346,6 +437,36 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const enable = (): Thenable<void> => enableProposal(extId, out);
   disposables.push(vscode.commands.registerCommand("browserTool.enableBrowserTabApi", enable));
+  disposables.push(
+    vscode.commands.registerCommand("browserTool.doctor", async () => {
+      out.show(true);
+      out.appendLine("");
+      out.appendLine("-------- /doctor --------");
+      const report = await runDoctor({
+        extensionId: extId,
+        extensionVersion: context.extension.packageJSON.version ?? "",
+        extensionPath: context.extensionPath,
+        vscodeVersion: vscode.version,
+        appName: vscode.env.appName,
+        browserTab: vscode.workspace.getConfiguration().get<boolean>(SETTING, false),
+        proposedApiPresent: typeof openTab === "function",
+        hostPid: process.pid,
+        pipePath: hostPipePath(process.pid),
+        workspaceFolders: vscode.workspace.workspaceFolders?.map((f) => f.uri.fsPath) ?? [],
+      });
+      for (const line of report.lines) out.appendLine(line);
+      out.appendLine("-------- /doctor done --------");
+      const show = report.ok ? vscode.window.showInformationMessage : vscode.window.showWarningMessage;
+      void show(report.summary);
+    }),
+  );
+
+  out.appendLine(
+    `Browser Tool ${context.extension.packageJSON.version ?? ""} active (extension host pid ${process.pid}).`,
+  );
+  out.appendLine(
+    'The listening pipe is only the live browser tab. Run "Browser Tool: /doctor" to test the MCP server Claude connects to.',
+  );
 
   const update = (): void => {
     const enabled = vscode.workspace.getConfiguration().get<boolean>(SETTING, false);

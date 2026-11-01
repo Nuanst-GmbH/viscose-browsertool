@@ -4,6 +4,38 @@ All notable changes to the **Browser Tool (MCP)** extension are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.2] - 2026-10-20
+
+### Added
+
+- Marketplace icon, plus a Nuanst mark and a small browser glyph in `media/`.
+
+### Fixed
+
+- Cookie sync on the Windows integrated browser. `Storage.getCookies` is not
+  implemented there (`Method not found`), and the `Network.getCookies` fallback
+  wrote nothing to the output channel, so the log stopped at "trying
+  Network.getCookies" whether it worked, failed, or timed out. The bridge now
+  tries `Network.getCookies` for the tab URL first, logs every attempt and how
+  many cookies came back (names only), and falls back to `document.cookie` when
+  no CDP cookie method returns any. That fallback cannot see HttpOnly SSO cookies.
+
+## [0.3.1] - 2026-10-20
+
+### Added
+
+- **Browser Tool: /doctor.** Command Palette command that starts `node dist/server.js`
+  the same way the editor does, completes an MCP `initialize` + `tools/list`
+  handshake, and reports Node, Playwright, the browser-tab pipe, and whether
+  Claude or VS Code MCP config actually points at this extension. The output
+  channel's "listening on …" line is only that pipe, not the MCP server.
+
+### Fixed
+
+- Playwright is loaded on the first browser launch instead of at MCP startup.
+  A missing Playwright install used to crash the server before it could list
+  tools, which looks like "tools unavailable" while the pipe is still listening.
+
 ## [0.3.0] - 2026-10-15
 
 ### Added

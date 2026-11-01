@@ -349,7 +349,7 @@ async function acquireEngine(): Promise<{ engine: Engine } | { noPage: true }> {
 // Server
 // ---------------------------------------------------------------------------
 
-const server = new McpServer({ name: "browser-tool", version: "0.3.0" });
+const server = new McpServer({ name: "browser-tool", version: "0.3.2" });
 
 server.registerTool(
   "open_url",
@@ -396,10 +396,11 @@ server.registerTool(
   {
     title: "Sync cookies from integrated tab",
     description:
-      "Copy cookies from VS Code's integrated browser tab (read via its live CDP session) into the headless " +
-      "twin, so an SSO/Kerberos login you already did in the tab applies to automated actions. Requires the " +
-      "browserTool.browserTab setting enabled and a tab that is already signed in to the site. Optionally " +
-      "pass url to navigate the twin there afterwards and verify the login took effect.",
+      "Copy cookies from VS Code's integrated browser tab into the headless twin, so an SSO/Kerberos login " +
+      "you already did in the tab applies to automated actions. Reads Network.getCookies over the tab's CDP " +
+      "session. On browsers that lack that method (Windows WebView2), falls back to document.cookie, which " +
+      "cannot see HttpOnly cookies — an SSO session cookie usually is HttpOnly and will not transfer. " +
+      "Requires browserTool.browserTab and a tab already signed in. Optionally pass url to open it on the twin afterwards.",
     inputSchema: { url: z.string().optional() },
   },
   wrap(async ({ url }) => {
@@ -625,6 +626,7 @@ server.registerTool(
 // ---------------------------------------------------------------------------
 
 async function main(): Promise<void> {
+  log(`starting (node ${process.version}, pid ${process.pid})`);
   const transport = new StdioServerTransport();
   await server.connect(transport);
   log("browser-tool MCP server running on stdio");
