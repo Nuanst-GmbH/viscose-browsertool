@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Marketplace icon, plus a Nuanst mark and a small browser glyph in `media/`.
 
+### Changed
+
+- Homepage, repository, and issues links now point at `Nuanst-GmbH/viscose-browsertool`.
+
 ### Fixed
 
 - Cookie sync on the Windows integrated browser. `Storage.getCookies` is not
